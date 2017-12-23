@@ -18,6 +18,7 @@ YES=1
 #
 CPU=-1
 GPU=0
+GPU_SEL=$CPU
 #
 #
 BUILD_UTILS=$NO
@@ -71,6 +72,15 @@ if [ -z "${DATASET}" ]; then
 fi
 
 export PYTHONPATH=.:$PYTHONPATH
+
+CUPY_CHECK=$(/usr/bin/python3 -c "import cupy.cuda; cupy.cuda.get_device_id()" 2>&1 | grep Error)
+if [ -z "$CUPY_CHECK" ]; then
+	echo "[+] Successfully located device via cupy."
+	GPU_SEL=$GPU
+else
+	echo "[-] Failed to initialize cupy. Using CPU mode for ssai-cnn."
+	GPU_SEL=$CPU
+fi
 
 if [ $BUILD_UTILS == $YES ]; then
 	echo "[=] Building ssai-cnn utils..."
@@ -134,18 +144,70 @@ fi
 if [ $TRAIN_DATASET == $YES ]; then
 	echo "[=] Training..."
 	CHAINER_TYPE_CHECK=0 CHAINER_SEED=$1 \
-	nohup $PYTHON ./scripts/train.py \
+	nohup \
+	$PYTHON ./scripts/train.py \
 		--seed 0 \
-		--gpu $CPU \
+		--gpu $GPU_SEL \
 		--model ./models/MnihCNN_$MODEL.py \
 		--train_ortho_db ./data/mass_$DATASET/lmdb/train_sat \
 		--train_label_db ./data/mass_$DATASET/lmdb/train_map \
 		--valid_ortho_db ./data/mass_$DATASET/lmdb/valid_sat \
 		--valid_label_db ./data/mass_$DATASET/lmdb/valid_map \
-		--dataset_size 1.0 \
-		> mnih_multi.log 2>&1 < /dev/null &
+		--dataset_size 1.0 
+#		> mnih_multi.log 2>&1 < /dev/null &
 	echo "[=] train.py returned exit code '$?'."
-fi
+
+	RESULT_DIR=$(ls -t $SSAI_HOME/results | head -1)
+	if [ -z $RESULT_DIR ]; then
+		echo "[-] Could not find directory containing results."
+		exit 1
+	fi
+	RESULT_DIR=$SSAI_HOME/results/$RESULT_DIR
+	echo "[=] Results directory: $RESULT_DIR."
+
+	EPOCH_FILE=$(ls -t $RESULT_DIR/*.model | head -1)
+	if [ -z $EPOCH_FILE ]; then
+		echo "[-] Could not find the epoch file in $RESULT_DIR."
+		exit 1
+	fi
+	#EPOCH_FILE=$RESULT_DIR/$EPOCH_FILE
+	
+	MODEL_FILE=$(ls -t $RESULT_DIR/Mnih*.py | head -1)
+	if [ -z $MODEL_FILE ]; then
+		echo "[-] Could not find the model file in $RESULT_DIR."
+		exit 1
+	fi
+	#MODEL_FILE=$RESULT_DIR/$MODEL_FILE
+
+	echo "[=] Predicting..."
+	echo "[=]   Epoch file: $EPOCH_FILE"
+	echo "[=]   Model file: $MODEL_FILE"
+	$PYTHON ./scripts/predict.py \
+		--model $MODEL_FILE \
+		--param $EPOCH_FILE \
+		--test_sat_dir ./data/mass_$DATASET/test/sat \
+		--channels 3 \
+		--offset 8 \
+		--gpu $GPU_SEL
+	echo "[=] predict.py returned exit code '$?'."
+
+	PREDICTION_DIR=$(ls -dt $RESULT_DIR/ma_prediction_* | head -1)
+	if [ -z $PREDICTION_DIR ]; then
+		echo "[-] Could not find the prediction file in $RESULT_DIR."
+		exit 1
+	fi
+	echo "[=] Prediction file: $PREDICTION_DIR."
+
+	echo "[=] Evaluating..."
+	$PYTHON ./scripts/evaluate.py \
+		--map_dir ./data/mass_$DATASET/test/map \
+		--result_dir $PREDICTION_DIR \
+		--channel 3 \
+		--offset 8 \
+		--relax 3 \
+		--steps 1024
+	fi
+	echo "[=] evaluate.py returned exit code '$?'."
 
 echo "[!] Completed."
 exit 0
