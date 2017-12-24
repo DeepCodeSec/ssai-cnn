@@ -55,7 +55,11 @@ while getopts ":bwctm:d:" o; do
             ;;
         d)
             DATASET=${OPTARG}
-			((DATASET="multi") || (DATASET="roads") || (DATASET="buildings") || (DATASET="roads_mini")) || usage
+  	    ((DATASET="merged") || (DATASET="roads") || (DATASET="buildings") || (DATASET="roads_mini")) || usage
+            ;;
+        m)
+            MODEL=${OPTARG}
+	    ((MODEL="multi") || (MODEL="single")) || usage
             ;;
         t)
             TRAIN_DATASET=$YES
@@ -144,7 +148,7 @@ fi
 if [ $TRAIN_DATASET == $YES ]; then
 	echo "[=] Training..."
 	CHAINER_TYPE_CHECK=0 CHAINER_SEED=$1 \
-	nohup \
+#	nohup \
 	$PYTHON ./scripts/train.py \
 		--seed 0 \
 		--gpu $GPU_SEL \
@@ -208,6 +212,7 @@ if [ $TRAIN_DATASET == $YES ]; then
 		--steps 1024
 	fi
 	echo "[=] evaluate.py returned exit code '$?'."
+fi
 
 echo "[!] Completed."
 exit 0
