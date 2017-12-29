@@ -111,7 +111,7 @@ def get_predict(args, ortho, model):
         if minibatch is None:
             break
         minibatch = Variable(
-            xp.asarray(minibatch, dtype=xp.float32), volatile=True)
+            xp.asarray(minibatch, dtype=xp.float32))
         preds = model(minibatch, None).data
         if args.gpu >= 0:
             preds = xp.asnumpy(preds)
