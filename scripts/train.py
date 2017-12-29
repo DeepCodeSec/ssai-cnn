@@ -258,8 +258,10 @@ def one_epoch(args, model, optimizer, epoch, train):
         x, t = minibatch
 
         volatile = 'off' if train else 'on'
-        x = Variable(xp.asarray(x), volatile=volatile)
-        t = Variable(xp.asarray(t), volatile=volatile)
+        #x = Variable(xp.asarray(x), volatile=volatile)
+        #t = Variable(xp.asarray(t), volatile=volatile)
+        x = Variable(xp.asarray(x))
+        t = Variable(xp.asarray(t))
 
         try:
                 if train:
@@ -268,7 +270,7 @@ def one_epoch(args, model, optimizer, epoch, train):
                     model(x, t)
 
                 sum_loss += float(model.loss.data) * t.data.shape[0]
-        except:
+        except Exception as e:
                 print("Exception thrown while updating the model: " + str(e))
                 print("Loss may be inaccurate.")
 
