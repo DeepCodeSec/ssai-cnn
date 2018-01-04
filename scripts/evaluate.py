@@ -83,9 +83,13 @@ def get_pre_rec(positive, prec_tp, true, recall_tp, steps):
         if pre != 1 and rec != 1 and pre > 0 and rec > 0:
             breakeven.append([pre, rec])
     pre_rec = np.asarray(pre_rec)
-    breakeven = np.asarray(breakeven)
-    breakeven_pt = np.abs(breakeven[:, 0] - breakeven[:, 1]).argmin()
-    breakeven_pt = breakeven[breakeven_pt]
+    if len(breakeven) > 0:
+        breakeven = np.asarray(breakeven)
+        breakeven_pt = np.abs(breakeven[:, 0] - breakeven[:, 1])
+        breakeven_pt = breakeven_pt.argmin()
+        breakeven_pt = breakeven[breakeven_pt]
+    else:
+        breakeven_pt = [0.0, 0.0]
 
     return pre_rec, breakeven_pt
 
